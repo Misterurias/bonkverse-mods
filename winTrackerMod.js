@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bonk.io Win Tracker (by Bonkverse)
 // @namespace    http://tampermonkey.net/
-// @version      3.6
+// @version      3.7
 // @description  Tracks your Bonk.io wins with server-side verified accounts using BonkBot API. Secure sessions, rate limiting, and server-determined usernames only. Auto-cleans session on tab close.
 // @author       you
 // @match        https://bonk.io/gameframe-release.html
@@ -19,7 +19,7 @@
   const API_WINS = `${API_BASE}/api/wins/`;
   const API_HEARTBEAT = `${API_BASE}/api/heartbeat/`;
   const API_STOP = `${API_BASE}/api/stop_tracking/`;
-  const VERSION = "3.6";
+  const VERSION = "3.7";
  
   // ---------- State ----------
   let currentUser = null;
@@ -172,6 +172,12 @@
         <div id="winTrackerControls" style="margin:10px; display:flex; gap:10px; justify-content:center;">
           <button id="startTrackBtn" class="bv-btn bv-btn-start">▶ Verify & Start</button>
           <button id="stopTrackBtn" class="bv-btn bv-btn-stop" style="display:none;">⏹ Stop</button>
+        </div>
+        <div style="margin-top:8px; font-size:12px; color:#aaa;">
+          Check your rank:
+          <a href="https://bonkverse.io/leaderboards/wins/today/" target="_blank" style="color:#00e6c3; text-decoration:underline;">
+            Bonkverse Leaderboards
+          </a>
         </div>
       `;
  
