@@ -1,48 +1,52 @@
 // ==UserScript==
-// @name         Bonk.io Win Tracker (by Bonkverse)
+// @name         Bonk.io Win/Loss Tracker (Bonkverse, verified)
 // @namespace    http://tampermonkey.net/
-// @version      3.7
-// @description  Tracks your Bonk.io wins with server-side verified accounts using BonkBot API. Secure sessions, rate limiting, and server-determined usernames only. Auto-cleans session on tab close.
+// @version      3.8
+// @description  Tracks your Bonk.io wins & losses with server-side verified accounts using BonkBot API. Secure sessions, rate limiting, and server-determined usernames only. Auto-cleans session on tab close.
 // @author       you
 // @match        https://bonk.io/gameframe-release.html
 // @grant        none
 // @license      MIT
 // ==/UserScript==
- 
+
 (() => {
-  console.log("Loading Bonk.io Win Tracker (Bonkverse, verified)...");
- 
+  console.log("Loading Bonk.io Win/Loss Tracker (Bonkverse, verified)...");
+
   // ---------- Config ----------
   const API_BASE = "https://bonkverse.io";
   const API_REQUEST_VERIFICATION = `${API_BASE}/api/request_verification/`;
   const API_COMPLETE_VERIFICATION = `${API_BASE}/api/complete_verification/`;
   const API_WINS = `${API_BASE}/api/wins/`;
+  const API_LOSSES = `${API_BASE}/api/losses/`;
   const API_HEARTBEAT = `${API_BASE}/api/heartbeat/`;
   const API_STOP = `${API_BASE}/api/stop_tracking/`;
-  const VERSION = "3.7";
- 
+  const VERSION = "3.8";
+
   // ---------- State ----------
   let currentUser = null;
   let winsTotal = 0;
+  let lossesTotal = 0;
   let lastWinName = null;
   let lastWinTime = 0;
+  let lastLossName = null;
+  let lastLossTime = 0;
   let statusMessage = "";
   let sessionToken = null;
   let heartbeatTimer = null;
   let verificationId = null;
   let verificationRoom = null;
- 
+
   // ---------- Utils ----------
   function getCurrentMap() {
     const el = document.getElementById("newbonklobby_maptext");
     return el ? (el.textContent || "").trim() : null;
   }
- 
+
   function setStatus(msg, color = "#aaa") {
     statusMessage = `<div style="margin-top:6px; font-size:12px; color:${color};">${msg}</div>`;
     updateUI();
   }
- 
+
   // ---------- Verification Flow ----------
   function startVerification() {
     setStatus("⏳ Requesting verification room...");
@@ -66,7 +70,7 @@
         setStatus("❌ Error contacting server.", "#ff4d4d");
       });
   }
- 
+
   function pollVerification() {
     const start = Date.now();
     const interval = setInterval(() => {
@@ -82,12 +86,10 @@
             currentUser = data.username;
             sessionToken = data.token;
             setStatus(`✅ Verified as ${currentUser}`, "#80ff80");
- 
-            // Swap buttons
+
             document.getElementById("startTrackBtn").style.display = "none";
             document.getElementById("stopTrackBtn").style.display = "inline-block";
- 
-            // Start heartbeat
+
             heartbeatTimer = setInterval(() => {
               fetch(API_HEARTBEAT, {
                 method: "POST",
@@ -96,28 +98,16 @@
             }, 30000);
           } else {
             const reason = (data.reason || "").toLowerCase();
- 
             if (reason.includes("not verified yet")) {
-              // still pending, keep polling
-            } else if (reason.includes("guest")) {
-              clearInterval(interval);
-              setStatus("❌ Verification failed: Guest accounts are not allowed. Please log in to Bonk.io and try again.", "#ff4d4d");
-            } else if (reason.includes("expired")) {
-              clearInterval(interval);
-              setStatus("❌ Verification expired: Room closed before verification.", "#ff4d4d");
+              // still pending
             } else {
               clearInterval(interval);
               setStatus(`❌ Verification failed: ${data.reason}`, "#ff4d4d");
-            }
- 
-            // Reset buttons on failure
-            if (!data.success) {
               document.getElementById("stopTrackBtn").style.display = "none";
               document.getElementById("startTrackBtn").style.display = "inline-block";
             }
           }
- 
-          // stop after 70s
+
           if (Date.now() - start > 70000) {
             clearInterval(interval);
             setStatus("❌ Verification timed out", "#ff4d4d");
@@ -134,11 +124,10 @@
         });
     }, 3000);
   }
- 
+
   // ---------- Session Stop ----------
   function stopTracking(sync = false) {
     if (!sessionToken) return;
- 
     if (sync && navigator.sendBeacon) {
       const headers = { type: "application/json" };
       const blob = new Blob([JSON.stringify({})], headers);
@@ -157,7 +146,7 @@
       });
     }
   }
- 
+
   // ---------- UI ----------
   function injectUI() {
     if (!document.getElementById("winTrackerBox")) {
@@ -176,11 +165,14 @@
         <div style="margin-top:8px; font-size:12px; color:#aaa;">
           Check your rank:
           <a href="https://bonkverse.io/leaderboards/wins/today/" target="_blank" style="color:#00e6c3; text-decoration:underline;">
-            Bonkverse Leaderboards
+            Bonkverse Wins
+          </a> |
+          <a href="https://bonkverse.io/leaderboards/losses/today/" target="_blank" style="color:#ff4d4d; text-decoration:underline;">
+            Bonkverse Losses
           </a>
         </div>
       `;
- 
+
       Object.assign(box.style, {
         position: "fixed",
         top: "100px",
@@ -196,7 +188,7 @@
         textAlign: "center",
         userSelect: "none",
       });
- 
+
       const header = box.querySelector("#winTrackerHeader");
       Object.assign(header.style, {
         display: "flex",
@@ -207,9 +199,9 @@
         cursor: "move",
         borderBottom: "1px solid rgba(255,255,255,0.1)"
       });
- 
+
       makeDraggable(box, header);
- 
+
       const toggleBtn = box.querySelector("#winTrackerToggle");
       Object.assign(toggleBtn.style, {
         background: "none",
@@ -218,7 +210,6 @@
         fontSize: "16px",
         cursor: "pointer"
       });
- 
       toggleBtn.addEventListener("click", () => {
         const content = box.querySelector("#winTrackerContent");
         const controls = box.querySelector("#winTrackerControls");
@@ -232,14 +223,14 @@
           toggleBtn.textContent = "+";
         }
       });
- 
+
       document.body.appendChild(box);
- 
+
       document.getElementById("startTrackBtn").onclick = startVerification;
       document.getElementById("stopTrackBtn").onclick = () => stopTracking(false);
     }
   }
- 
+
   function makeDraggable(el, handle) {
     let offsetX = 0, offsetY = 0, dragging = false;
     handle.onmousedown = (e) => {
@@ -260,7 +251,7 @@
       };
     };
   }
- 
+
   function updateUI() {
     injectUI();
     const content = document.querySelector("#winTrackerContent");
@@ -270,6 +261,7 @@
         content.innerHTML = `
           <div style="margin:8px 0;">👤 <span style="color:#6cf">${currentUser}</span></div>
           <div>🏆 Wins this session: <span style="color:#00ffcc">${winsTotal}</span></div>
+          <div>💀 Losses this session: <span style="color:#ff4d4d">${lossesTotal}</span></div>
           <div>🗺 Map: <span style="color:#ffcc00">${mapName}</span></div>
           ${statusMessage}
         `;
@@ -278,27 +270,15 @@
       }
     }
   }
- 
+
   // ---------- API send ----------
   function sendWinToServer(username) {
-    if (!sessionToken) {
-      setStatus("⚠️ No active session, win not logged.", "#ff8080");
-      return;
-    }
- 
+    if (!sessionToken) return;
     const mapName = getCurrentMap();
     const now = Date.now();
- 
-    if (now - lastWinTime < 5000) {
-      setStatus("⚠️ Win rejected: too fast (<5s apart).", "#ff8080");
-      return;
-    }
-    if (mapName && mapName.toLowerCase().includes("xp")) {
-      setStatus("⚠️ Win rejected: XP farming map.", "#ff8080");
-      return;
-    }
+    if (now - lastWinTime < 5000) return;
     lastWinTime = now;
- 
+
     fetch(API_WINS, {
       method: "POST",
       headers: {
@@ -306,35 +286,48 @@
         Authorization: "Bearer " + sessionToken,
       },
       body: JSON.stringify({ username, ts: now, map_name: mapName || "Unknown" }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setStatus("✅ Win sent successfully!", "#80ff80");
-        } else {
-          setStatus(`⚠️ Rejected: ${data.reason || "Server rejected"}`, "#ff8080");
-        }
-      })
-      .catch((err) => {
-        console.error("WinTracker API error:", err);
-        setStatus("❌ Error sending win to server.", "#ff8080");
-      });
+    });
   }
- 
-  // ---------- Detect win ----------
-  function updateWinsIfYouWon() {
+
+  function sendLossToServer(username) {
+    if (!sessionToken) return;
+    const mapName = getCurrentMap();
+    const now = Date.now();
+    if (now - lastLossTime < 5000) return;
+    lastLossTime = now;
+
+    fetch(API_LOSSES, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + sessionToken,
+      },
+      body: JSON.stringify({ username, ts: now, map_name: mapName || "Unknown" }),
+    });
+  }
+
+  // ---------- Detect win/loss ----------
+  function updateResult() {
     const topEl = document.getElementById("ingamewinner_top");
     if (!topEl) return;
     const winnerName = (topEl.textContent || "").trim();
-    if (currentUser && winnerName === currentUser && lastWinName !== winnerName) {
+    if (!currentUser || !winnerName) return;
+
+    if (winnerName === currentUser && lastWinName !== winnerName) {
       winsTotal++;
       lastWinName = winnerName;
       console.log(`Win detected for ${winnerName} → total=${winsTotal}`);
       updateUI();
       sendWinToServer(currentUser);
+    } else if (winnerName !== currentUser && lastLossName !== winnerName) {
+      lossesTotal++;
+      lastLossName = winnerName;
+      console.log(`Loss detected for ${currentUser} → total=${lossesTotal}`);
+      updateUI();
+      sendLossToServer(currentUser);
     }
   }
- 
+
   // ---------- Winner observer ----------
   function hookWinnerObserver() {
     const target = document.getElementById("ingamewinner");
@@ -344,13 +337,16 @@
     }
     const observer = new MutationObserver(() => {
       const visible = target.style.visibility !== "hidden";
-      if (visible) updateWinsIfYouWon();
-      else lastWinName = null;
+      if (visible) updateResult();
+      else {
+        lastWinName = null;
+        lastLossName = null;
+      }
     });
     observer.observe(target, { attributes: true, attributeFilter: ["style"], subtree: true });
-    console.log("WinTracker: observer attached to #ingamewinner");
+    console.log("Win/Loss Tracker: observer attached to #ingamewinner");
   }
- 
+
   // ---------- Inject CSS ----------
   const style = document.createElement("style");
   style.textContent = `
@@ -392,11 +388,9 @@
     }
   `;
   document.head.appendChild(style);
- 
+
   // ---------- Init ----------
   hookWinnerObserver();
   setInterval(updateUI, 2000);
- 
-  // Auto-stop session on tab close with sendBeacon
   window.addEventListener("beforeunload", () => stopTracking(true));
 })();
