@@ -20,6 +20,8 @@
   const API_LOSSES = `${API_BASE}/api/losses/`;
   const API_HEARTBEAT = `${API_BASE}/api/heartbeat/`;
   const API_STOP = `${API_BASE}/api/stop_tracking/`;
+
+  // Make sure to update version above as well
   const VERSION = "3.9";
 
   // ---------- State ----------
