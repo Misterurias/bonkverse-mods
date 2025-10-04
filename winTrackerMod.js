@@ -313,19 +313,30 @@
     const winnerName = (topEl.textContent || "").trim();
     if (!currentUser || !winnerName) return;
 
+      const teamNames = ["red", "blue", "yellow", "green"];
+
     if (winnerName === currentUser && lastWinName !== winnerName) {
       winsTotal++;
       lastWinName = winnerName;
       console.log(`Win detected for ${winnerName} → total=${winsTotal}`);
       updateUI();
       sendWinToServer(currentUser);
-    } else if (winnerName !== currentUser && lastLossName !== winnerName) {
+    } 
+    else if (winnerName !== currentUser && lastLossName !== winnerName) {
+      // 🛑 Skip team-based wins
+      const lower = winnerName.toLowerCase();
+      if (teamNames.includes(lower)) {
+        console.log(`Ignoring team result: ${winnerName}`);
+        return;
+      }
+
       lossesTotal++;
       lastLossName = winnerName;
       console.log(`Loss detected for ${currentUser} → total=${lossesTotal}`);
       updateUI();
       sendLossToServer(currentUser);
     }
+
   }
 
   // ---------- Winner observer ----------
