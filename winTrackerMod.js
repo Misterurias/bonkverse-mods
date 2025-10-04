@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bonk.io Win/Loss Tracker (Bonkverse, verified)
 // @namespace    http://tampermonkey.net/
-// @version      3.8
+// @version      3.9
 // @description  Tracks your Bonk.io wins & losses with server-side verified accounts using BonkBot API. Secure sessions, rate limiting, and server-determined usernames only. Auto-cleans session on tab close.
 // @author       you
 // @match        https://bonk.io/gameframe-release.html
@@ -20,7 +20,7 @@
   const API_LOSSES = `${API_BASE}/api/losses/`;
   const API_HEARTBEAT = `${API_BASE}/api/heartbeat/`;
   const API_STOP = `${API_BASE}/api/stop_tracking/`;
-  const VERSION = "3.8";
+  const VERSION = "3.9";
 
   // ---------- State ----------
   let currentUser = null;
